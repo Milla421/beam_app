@@ -4,9 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <!-- PWA Settings -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0f172a">
+
     <title>Shim Stack Analyzer</title>
     <style>
         :root {
@@ -614,7 +617,7 @@
         }
 
         // Render Functions
-        function drawGraph(ctx, dataX, dataY, label, color, fill = false) {
+        function drawGraph(ctx, dataX, dataY, label, color, fill = false, xDomainMax = null) {
             const w = ctx.canvas.width;
             const h = ctx.canvas.height;
             ctx.clearRect(0, 0, w, h);
@@ -625,8 +628,9 @@
             const plotH = h - pad * 2;
 
             // Ranges
+            // Ranges
             const minX = 0;
-            const maxX = dataX[dataX.length - 1];
+            const maxX = xDomainMax !== null ? xDomainMax : dataX[dataX.length - 1];
             let minY = Math.min(...dataY);
             let maxY = Math.max(...dataY);
 
@@ -682,7 +686,7 @@
             ctx.fillText(minY.toPrecision(3), 5, mapY(minY));
         }
 
-        function drawMain(res) {
+        function drawMain(res, xDomainMax) {
             const ctx = ctxs.main;
             const w = ctx.canvas.width;
             const h = ctx.canvas.height;
@@ -690,121 +694,91 @@
 
             if (!res) return;
 
-            // Coordinate mapping
-            // Need to fit the entire stack + deflection in view.
-            // Stack height ~ sum(t). Length ~ L_max. Deflection ~ y_max.
-            // Aspect ratio of beam is extreme (L=40mm, t=0.2mm). 
-            // We MUST distort aspect ratio.
+            // X scale (Horizontal)
+            const pxPerMmX = (w - 100) / xDomainMax;
 
-            const pxPerMmX = (w - 100) / res.L_max;
+            // Y scale (Vertical)
+            // Strategy: Decouple "Thickness Scale" from "Deflection Scale"
+            // This prevents the beams from looking "fat" when we zoom in to see small deflections.
 
-            // Y scaling: Find max extent
-            const maxDef = Math.min(...res.y); // Negative
+            // 1. Geometry Scale (Thickness): Fixed or fitted to stack height
+            // fit total stack thickness into ~15% of screen height (or fixed pixels per mm)
+            // Fixed pixels is often better to avoid jumping size when adding shims
+            // Let's use a comfortable constant, e.g., 20px per 0.1mm = 200 px/mm ?
+            // Or adapt loosely:
             const totalThick = state.shims.reduce((a, b) => a + b.thickness, 0);
+            let scaleGeom = 100; // 100 px/mm -> 0.2mm = 20px thick. Good.
 
-            // We want to visualize the stack thickness exaggerated?
-            let yExaggeration = 1.0;
-            // Scale deflection so it occupies say 30% of screen height
+            // 2. Deflection Scale: Auto-fit deflection to ~40% of screen height
+            const maxDef = Math.min(...res.y); // Negative value
             const targetDefPx = h * 0.4;
-            const pxPerMmY_Def = Math.abs(targetDefPx / maxDef);
+            let scaleDeflection = 100; // Default matches geom
 
-            // Scale thickness so distinct shims are visible.
-            // Say minimum 3px per shim.
-            const minPxPerShim = 4;
-            let pxPerMmY_Thick = minPxPerShim / 0.1; // Baseline
-
-            // To combine, we need a consistent Y scale if we want "realistic" bending shape?
-            // No, we usually exaggerate deflection AND thickness independently in engineering apps nicely.
-            // But if we curve the polygons, we should use one scale for Y coordinates to avoid shearing artifacts?
-            // Let's use one aggressive Master Y Scale.
-
-            // If deflection is 0 (load 0), default to reasonable thickness view.
-            let yScale = 50; // pixels per mm default
-            if (Math.abs(maxDef) > 1e-6) {
-                yScale = Math.min(2000, Math.abs((h * 0.6) / maxDef)); // Cap zoom
+            if (Math.abs(maxDef) > 1e-9) {
+                // Determine scale needed to fill target height
+                const fitScale = targetDefPx / Math.abs(maxDef);
+                // Cap it? If deflection is tiny, we exaggerate A LOT. 
+                // But we don't want noise to look like bending.
+                // Let's rely on the math generally, but maybe cap exaggeration ratio?
+                // Visual Exaggeration Factor = scaleDeflection / scaleGeom
+                // If factor > 1000, maybe it's cleaner to show flat?
+                // Let's just use the fitScale, but clamp the *visual* deflection if it's super duper tiny?
+                // No, user wants to see effect.
+                scaleDeflection = fitScale;
+            } else {
+                scaleDeflection = scaleGeom; // No deflection
             }
-            // Ensure thickness isn't invisible
-            if (yScale * 0.2 < 2) yScale = 20; // Lower bound
+
+            // Limit scaleDeflection so we don't render NaN or Infinity
+            if (!isFinite(scaleDeflection)) scaleDeflection = scaleGeom;
+
 
             const originX = 50;
-            const originY = h / 3; // Start from top third, deflect down
+            const originY = h / 3; // Neutral Axis Base position
 
             // Draw Wall
             ctx.fillStyle = '#64748b';
             ctx.fillRect(originX - 20, originY - 50, 20, 100);
 
-            // Draw Shims
-            // We stack them upwards from y=0? Or downwards?
-            // Usually stack: Shim 1 on bottom, Shim 2 on top...
-            // Or typically largest shim on face, then smaller...
-            // Let's draw them centered or bottom aligned.
-            // Let's stack UP from Neutral Axis 0 for visualization.
+            let currentThickOffset = 0; // Cumulative thickness from "Neutral Axis" (conceptually bottom of stack here)
 
-            let currentThickOffset = 0;
-
-            // Sort for rendering z-order? Not needed for 2D.
-            // Iterate shims.
-            // We need to map (x, y_curve + y_stack_offset)
-
-            // Beam shape is y_curve(x).
-            // Shim i is bounded by y_curve(x) + offset_bottom  AND y_curve(x) + offset_top.
-
+            // Render Shims
             state.shims.forEach((shim, idx) => {
                 ctx.beginPath();
                 ctx.fillStyle = `hsl(${210 + idx * 10}, 80%, 60%)`;
                 ctx.strokeStyle = `hsl(210, 50%, 40%)`;
 
-                // Top curve points
                 const offsetTop = currentThickOffset + shim.thickness;
                 const offsetBot = currentThickOffset;
 
-                // Construct polygon
-                // Top edge: x=0 to L
-                // Bottom edge: x=L to 0
-
-                function getScreenPt(ix, localY) {
-                    // interpolate y from physics result
-                    // ix is index in physics arrays
-                    // physics x[ix] matches? Yes linear grid
-
+                // Helper to map Physics Point to Screen Point
+                // DECOUPLED SCALING:
+                // Screen Y = originY - ( Deflection * scaleDeflection + ThicknessOffset * scaleGeom )
+                function getScreenPt(ix, localThickPos) {
                     const physX = res.x[ix];
-                    if (physX > shim.length) return null; // Past end of this shim
-                    const physY = res.y[ix]; // Centerline deflection ?
-
-                    // Screen Y = originY - (physY + localY) * yScale. 
-                    // (Canvas Y is down, so minus makes positive Y go up). 
-                    // Deflection physY is negative (down). So -(-val) -> positive (down screen).
-                    // WAIT. originY is "Zero". Down deflection should increase ScreenY.
-                    // ScreenY = originY + (-physY * yScale) ? NO.
-                    // Let's stick to: Up is -Y in Canvas.
-                    // Physics Y is +Up (usually), -Down.
-                    // ScreenY = originY - (physY + localY) * yScale.
+                    if (physX > shim.length) return null;
+                    const physDef = res.y[ix];
 
                     return {
                         x: originX + physX * pxPerMmX,
-                        y: originY - (physY + localY) * yScale
+                        y: originY - (physDef * scaleDeflection + localThickPos * scaleGeom)
                     };
                 }
 
-                // Trace Top
+                // Trace Top Loop
                 let first = true;
-                const iMax = res.x.length;
                 let lastValidX = 0;
+                const iMax = res.x.length;
 
                 for (let i = 0; i < iMax; i++) {
                     const pt = getScreenPt(i, offsetTop);
-                    if (!pt) {
-                        // We went past shim length.
-                        // Clamp to exact length? 
-                        // Simplified: break.
-                        break;
-                    }
+                    if (!pt) break;
                     if (first) { ctx.moveTo(pt.x, pt.y); first = false; }
                     else { ctx.lineTo(pt.x, pt.y); }
                     lastValidX = i;
                 }
 
-                // Trace Bottom (Reverse)
+                // Trace Bottom Loop (Reverse)
                 for (let i = lastValidX; i >= 0; i--) {
                     const pt = getScreenPt(i, offsetBot);
                     ctx.lineTo(pt.x, pt.y);
@@ -817,25 +791,28 @@
                 currentThickOffset += shim.thickness;
             });
 
-            // Draw Load Arrows (symbolic)
-            // Draw a few arrows on top of the stack along effective length
-            const arrowYStart = originY - (res.y[0] + currentThickOffset) * yScale - 20;
+            // Draw Load Arrows
+            // They need to float on top of the surface
+            const surfaceThickOffset = currentThickOffset;
+
+            // Arrows share the style
             ctx.fillStyle = '#ef4444';
             ctx.strokeStyle = '#ef4444';
 
-            // 5 arrows spaced out
             const arrowCount = 5;
             const arrowSpice = res.L_max / arrowCount;
 
             for (let k = 1; k <= arrowCount; k++) {
                 const lx = k * arrowSpice - (arrowSpice / 2);
-                // Find y at this x
                 const idx = Math.floor(lx / res.L_max * (res.x.length - 1));
+
                 if (idx < res.x.length) {
                     const ly = res.y[idx];
+
+                    // Calc surface point
                     const sx = originX + lx * pxPerMmX;
-                    const sy_surf = originY - (ly + currentThickOffset) * yScale;
-                    const sy_start = sy_surf - 30; // 30px arrow length
+                    const sy_surf = originY - (ly * scaleDeflection + surfaceThickOffset * scaleGeom);
+                    const sy_start = sy_surf - 30;
 
                     // Arrow line
                     ctx.beginPath();
@@ -851,11 +828,31 @@
                     ctx.stroke();
                 }
             }
+
+            // Add subtle label for "Exaggeration Factor" if high
+            const factor = scaleDeflection / scaleGeom;
+            if (factor > 2) {
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.font = '10px sans-serif';
+                ctx.fillText(`Deflection Exaggerated: ${factor.toFixed(1)}x`, w - 150, h - 10);
+            }
         }
 
         function draw() {
+            // 1. Calculate reference deflection at Max Load
+            // This determines the visualization scale so the animation is linear.
+            const savedLoad = state.load;
+            let maxLoadVal = parseFloat(els.maxLoad.value);
+            if (isNaN(maxLoadVal) || maxLoadVal === 0) maxLoadVal = 10;
+
+            // Calculate theoretical max physics
+            state.load = maxLoadVal;
+            const resMax = solvePhysics();
+            state.load = savedLoad;
+
+            // 2. Calculate Actual Physics
             const res = solvePhysics();
-            if (!res) return;
+            if (!res || !resMax) return;
 
             // Stats
             // Display max deflection in mm
@@ -863,14 +860,37 @@
             els.maxDef.innerText = maxD.toFixed(3) + " mm";
 
             els.maxStress.innerText = res.maxStress.toFixed(1) + " MPa";
-            if (res.maxStress > 1000) els.maxStress.style.color = '#ef4444'; // Red if high
+            if (res.maxStress > 1000) els.maxStress.style.color = '#ef4444';
             else els.maxStress.style.color = '#3b82f6';
 
             // Graphs
-            drawMain(res);
-            drawGraph(ctxs.disp, res.x, res.y, "Deflection", "#3b82f6", true);
-            drawGraph(ctxs.moment, res.x, res.M, "Moment", "#10b981", true); // Green
-            drawGraph(ctxs.shear, res.x, res.V, "Shear", "#f59e0b", true); // Orange
+            // Use a stable X view max to prevent "swimming" when editing lengths
+            const viewMaxX = Math.max(res.L_max, 100);
+
+            // Calculate Fixed Deflection Scale based on Max Load
+            // Target: Max Load fills 40% of screen height
+            const h = ctxs.main.canvas.height;
+            const targetDefPx = h * 0.4;
+            let fixedScaleDef = 100;
+
+            if (Math.abs(resMax.maxStress) > 1e-9) { // Check stress/deflection significance
+                const maxDefRef = Math.min(...resMax.y);
+                if (Math.abs(maxDefRef) > 1e-9) {
+                    fixedScaleDef = targetDefPx / Math.abs(maxDefRef);
+                }
+            } else {
+                // Even at max load, deflection is tiny (very stiff). 
+                // Use a reasonable high zoom or default.
+                fixedScaleDef = 100;
+            }
+
+            // Clamp max zoom to avoid floating point noise explosions
+            if (fixedScaleDef > 10000) fixedScaleDef = 10000;
+
+            drawMain(res, viewMaxX, fixedScaleDef);
+            drawGraph(ctxs.disp, res.x, res.y, "Deflection", "#3b82f6", true, viewMaxX);
+            drawGraph(ctxs.moment, res.x, res.M, "Moment", "#10b981", true, viewMaxX);
+            drawGraph(ctxs.shear, res.x, res.V, "Shear", "#f59e0b", true, viewMaxX);
         }
 
         // Logic Controls
@@ -924,7 +944,6 @@
         // Share Functionality
         els.shareBtn.onclick = () => {
             // Encode state to base64
-            // We only need shims, E, width, load, maxLoad settings
             const data = {
                 s: state.shims,
                 E: state.E,
@@ -934,11 +953,13 @@
             };
             const str = JSON.stringify(data);
             const b64 = btoa(str);
-            const url = window.location.origin + window.location.pathname + '#' + b64;
+            // Use href to avoid issues with origin/pathname
+            const baseUrl = window.location.href.split('#')[0];
+            const url = baseUrl + '#' + b64;
 
             navigator.clipboard.writeText(url).then(() => {
                 const originalText = els.shareBtn.innerText;
-                els.shareBtn.innerText = "Copied!";
+                els.shareBtn.innerText = "Copied to Clipboard!";
                 setTimeout(() => els.shareBtn.innerText = originalText, 2000);
             }).catch(err => {
                 prompt("Copy this URL:", url);
