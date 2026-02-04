@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
+    <title>Shim Stack Analyzer</title>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            --sidebar-bg: rgba(30, 41, 59, 0.7);
+            --card-bg: rgba(30, 41, 59, 0.4);
+            --card-border: 1px solid rgba(255, 255, 255, 0.1);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #3b82f6;
+            --accent-glow: 0 0 10px rgba(59, 130, 246, 0.5);
+            --input-bg: rgba(0, 0, 0, 0.2);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: var(--bg-gradient);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            backdrop-filter: blur(20px);
+            overscroll-behavior-y: none;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 380px;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(10px);
+            border-right: var(--card-border);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            overflow-y: auto;
+            z-index: 20;
+            box-shadow: 5px 0 20px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin: 0 0 24px 0;
+            color: white;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        h2 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin: 24px 0 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 8px;
+        }
+
+        .control-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        input[type="number"],
+        input[type="text"] {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 10px 12px;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(0, 0, 0, 0.4);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        /* Slider */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            margin: 10px 0;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            background: #334155;
+            border-radius: 3px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: var(--accent);
+            margin-top: -6px;
+            box-shadow: var(--accent-glow);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        /* Shim Items */
+        .shim-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .shim-item {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: grid;
+            grid-template-columns: 1fr 1fr 28px;
+            gap: 12px;
+            align-items: end;
+            transition: background 0.2s;
+        }
+
+        .shim-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        /* Buttons */
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-add {
+            background: rgba(16, 185, 129, 0.9);
+            width: 100%;
+            margin-top: 12px;
+        }
+
+        .btn-add:hover {
+            background: #059669;
+        }
+
+        .btn-sm {
+            padding: 6px;
+            border-radius: 6px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* Workspace */
+        .workspace {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto 1fr 1fr;
+            /* Stats, Main, Bottom Graphs */
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .stats-container {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: var(--card-border);
+            padding: 20px;
+            border-radius: 12px;
+            flex: 1;
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .canvas-card {
+            background: var(--card-bg);
+            border: var(--card-border);
+            border-radius: 16px;
+            padding: 2px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 250px;
+        }
+
+        .card-header {
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            z-index: 5;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 4px 10px;
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Layout specific */
+        .canvas-container {
+            background: var(--card-bg);
+            border: var(--card-border);
+            border-radius: 16px;
+            padding: 0;
+            min-height: unset;
+        }
+
+        #main-view-container {
+            grid-column: 1 / -1;
+            min-height: 400px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .value-bubble {
+            font-size: 0.9rem;
+            color: var(--accent);
+            font-weight: 600;
+            background: rgba(59, 130, 246, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 1000px) {
+            .workspace {
+                display: flex;
+                flex-direction: column;
+            }
+
+            #main-view-container {
+                min-height: 300px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+                overflow: auto;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: none;
+                overflow: visible;
+            }
+
+            .workspace {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Sidebar Controls -->
+    <div class="sidebar">
+        <h1>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 20h20" />
+                <path d="M5 20V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v15" />
+                <path d="M5 20h14" />
+            </svg>
+            Shim Stack AI
+        </h1>
+
+        <div class="control-group">
+            <label for="elastic-modulus">Elastic Modulus (GPa)</label>
+            <input type="number" id="elastic-modulus" value="200" step="1">
+        </div>
+
+        <div class="control-group">
+            <label for="shim-width">Width / Diameter (mm)</label>
+            <input type="number" id="shim-width" value="20" step="0.5">
+        </div>
+
+        <div class="control-group">
+            <label>Load Settings</label>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Distributed Load (N/mm)</span>
+                <span id="force-val" class="value-bubble">2.0 N/mm</span>
+            </div>
+            <div class="slider-container">
+                <input type="range" id="load-slider" min="0" max="100" value="20" step="1">
+            </div>
+            <div style="display: flex; gap: 5px; margin-top: 5px;">
+                <input type="number" id="max-load-input" value="10" title="Max Load for Slider" style="flex:1;">
+                <span style="align-self: center; font-size: 0.8rem; color:#64748b;">Max</span>
+            </div>
+        </div>
+
+        <h2>Shims</h2>
+        <div id="shim-list-container" class="shim-list">
+            <!-- Shims injected here -->
+        </div>
+
+        <button class="btn btn-add" id="add-shim-btn">+ Add Shim</button>
+        <button class="btn" style="margin-top: 10px; background: #475569;" id="sort-shim-btn">Sort (Long ->
+            Short)</button>
+
+        <div style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+            <button class="btn" style="width: 100%; background: #6366f1;" id="share-btn">Copy Shareable Link</button>
+        </div>
+
+    </div>
+
+    <!-- Main Visuals -->
+    <div class="workspace">
+
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-value" id="max-deflection">0.00 mm</div>
+                <div class="stat-label">Max Deflection</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="max-stress">0 MPa</div>
+                <div class="stat-label">Max Bending Stress</div>
+            </div>
+        </div>
+
+        <div class="canvas-card" id="main-view-container">
+            <div class="card-header">Stack Visualization</div>
+            <div class="canvas-container">
+                <canvas id="main-canvas"></canvas>
+            </div>
+        </div>
+
+        <div class="canvas-card">
+            <div class="card-header">Displacement (mm)</div>
+            <div class="canvas-container">
+                <canvas id="disp-canvas"></canvas>
+            </div>
+        </div>
+
+        <div class="canvas-card">
+            <div class="card-header">Bending Moment (N·mm)</div>
+            <div class="canvas-container">
+                <canvas id="moment-canvas"></canvas>
+            </div>
+        </div>
+
+        <div class="canvas-card">
+            <div class="card-header">Shear Force (N)</div>
+            <div class="canvas-container">
+                <canvas id="shear-canvas"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // State
+        const state = {
+            E: 200 * 1000, // MPa (N/mm^2)
+            width: 20, // mm
+            load: 2.0, // N/mm
+            shims: [
+                { length: 40, thickness: 0.25 },
+                { length: 35, thickness: 0.20 },
+                { length: 30, thickness: 0.20 },
+                { length: 25, thickness: 0.15 },
+                { length: 20, thickness: 0.15 }
+            ]
+        };
+
+        // DOM Elements
+        const els = {
+            eMod: document.getElementById('elastic-modulus'),
+            width: document.getElementById('shim-width'),
+            slider: document.getElementById('load-slider'),
+            maxLoad: document.getElementById('max-load-input'),
+            forceVal: document.getElementById('force-val'),
+            shimList: document.getElementById('shim-list-container'),
+            addShim: document.getElementById('add-shim-btn'),
+            sortShim: document.getElementById('sort-shim-btn'),
+            shareBtn: document.getElementById('share-btn'),
+            maxDef: document.getElementById('max-deflection'),
+            maxStress: document.getElementById('max-stress')
+        };
+
+        const canvases = {
+            main: document.getElementById('main-canvas'),
+            disp: document.getElementById('disp-canvas'),
+            moment: document.getElementById('moment-canvas'),
+            shear: document.getElementById('shear-canvas')
+        };
+        const ctxs = {
+            main: canvases.main.getContext('2d'),
+            disp: canvases.disp.getContext('2d'),
+            moment: canvases.moment.getContext('2d'),
+            shear: canvases.shear.getContext('2d')
+        };
+
+        // Resize Handling
+        function resizeCanvases() {
+            Object.values(canvases).forEach(acc => {
+                const rect = acc.parentElement.getBoundingClientRect();
+                acc.width = rect.width;
+                acc.height = rect.height;
+            });
+            draw();
+        }
+        window.addEventListener('resize', resizeCanvases);
+
+        // Core Physics Engine
+        function solvePhysics() {
+            // Sort shims conceptually for calculation if needed, but stiffness is sum.
+            // However, shims only contribute stiffness where they exist.
+
+            // 1. Define integration grid
+            // Find max length
+            let L_max = 0;
+            state.shims.forEach(s => L_max = Math.max(L_max, s.length));
+            if (L_max === 0) return null;
+
+            const N_steps = 200;
+            const dx = L_max / N_steps;
+
+            // Initialize arrays
+            // Coordinate system: x=0 is Fixed Support.
+            // We integrate from Free End (x=L) backwards for Force -> Moment?
+            // Actually, for cantilever, V(x) = integral_-w dx from x to L.
+            // Let's do forward arrays for plotting, but calc needs careful boundary conditions.
+
+            let x = [];
+            let EI = [];
+            let w_dist = [];
+
+            // Build Stiffness Profile
+            for (let i = 0; i <= N_steps; i++) {
+                const pos = i * dx;
+                x.push(pos);
+
+                // Active shims at this pos (Length > pos)
+                let activeEI = 0;
+                let activeThick = 0;
+
+                state.shims.forEach(s => {
+                    if (s.length >= pos) {
+                        const I = (state.width * Math.pow(s.thickness, 3)) / 12;
+                        activeEI += (state.E * I);
+                    }
+                });
+
+                EI.push(activeEI);
+                w_dist.push(state.load); // Uniform load everywhere? Or just on top shim? length?
+                // Request said "distributed force applied onto the top beam".
+                // Usually implies force exists where there is structure. 
+                // We'll apply load up to the longest beam length.
+            }
+
+            // --- Integration ---
+            // 1. Shear V(x). V(L) = 0. V(x) = Integral_{x}^{L} w(z) dz
+            // 2. Moment M(x). M(L) = 0. M(x) = Integral_{x}^{L} V(z) dz (Check signs)
+            // Sign Convention: Downward load w is negative?
+            // Let's assign w as positive constant downward.
+            // V(x): Shear Force. Upward force from left part on right part?
+            // Let's use standard: dV/dx = -w. V(L) = 0. -> V(x) = w * (L-x)
+            // dM/dx = V. M(L) = 0. -> M(x) = - w * (L-x)^2 / 2
+
+            // Numerical integration from Tip (N_steps) back to Base (0)
+            let V = new Array(N_steps + 1).fill(0);
+            let M = new Array(N_steps + 1).fill(0);
+
+            for (let i = N_steps - 1; i >= 0; i--) {
+                // Backward integration
+                // V[i] = V[i+1] + w * dx
+                const currentW = w_dist[i]; // Load at this slice
+                V[i] = V[i + 1] + currentW * dx;
+
+                // M[i] = M[i+1] - V[i] * dx (Standard relation M_left = M_right - Shear*dist)
+                // Actually M(x) is negative for cantilever with down load.
+                // Let's just integrate magnitude and fix sign later or follow strict mechanics.
+                // dM/dx = V -> M_i+1 - M_i = V_avg * dx -> M_i = M_i+1 - V * dx
+                M[i] = M[i + 1] - V[i] * dx;
+            }
+
+            // 3. Curvature k = M / EI
+            let k = [];
+            let maxStress = 0;
+
+            for (let i = 0; i <= N_steps; i++) {
+                if (EI[i] > 1e-9) {
+                    k[i] = M[i] / EI[i];
+
+                    // Stress Check (Max sigma = M * c / I_equiv ???)
+                    // For a stack, curvature is common. Strain = k * y.
+                    // Max strain in a shim i is k * (t_i/2).
+                    // Stress = E * strain = E * k * t_i / 2.
+                    // We check all active shims at this section to find max stress.
+                    state.shims.forEach(s => {
+                        if (s.length >= x[i]) {
+                            const sigma = Math.abs(state.E * k[i] * s.thickness / 2);
+                            if (sigma > maxStress) maxStress = sigma;
+                        }
+                    });
+
+                } else {
+                    k[i] = 0;
+                }
+            }
+
+            // 4. Slope theta. theta(0) = 0.
+            // 5. Deflection y. y(0) = 0.
+            let theta = new Array(N_steps + 1).fill(0);
+            let y = new Array(N_steps + 1).fill(0);
+
+            for (let i = 1; i <= N_steps; i++) {
+                // Forward integration
+                theta[i] = theta[i - 1] + k[i - 1] * dx; // Euler
+                y[i] = y[i - 1] + theta[i] * dx;
+            }
+
+            return { x, y, M, V, maxStress, L_max };
+        }
+
+        // Render Functions
+        function drawGraph(ctx, dataX, dataY, label, color, fill = false) {
+            const w = ctx.canvas.width;
+            const h = ctx.canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            // Plot area
+            const pad = 40;
+            const plotW = w - pad * 2;
+            const plotH = h - pad * 2;
+
+            // Ranges
+            const minX = 0;
+            const maxX = dataX[dataX.length - 1];
+            let minY = Math.min(...dataY);
+            let maxY = Math.max(...dataY);
+
+            // Add slight buffer to Y
+            const rangeY = maxY - minY;
+            if (Math.abs(rangeY) < 1e-6) { minY -= 1; maxY += 1; }
+            else { minY -= rangeY * 0.1; maxY += rangeY * 0.1; }
+
+            // Invert Y for standard graph feel if all negative (Deflection)
+            // But we want to show negative = down.
+            // Let's implement standard cartesian mapping.
+            // mapX: 0 -> pad, max -> w-pad
+            // mapY: max -> pad, min -> h-pad (Canvas Y is down)
+
+            function mapX(val) { return pad + (val - minX) / (maxX - minX) * plotW; }
+            function mapY(val) { return pad + (maxY - val) / (maxY - minY) * plotH; }
+
+            // Grid
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            // Zero lines
+            const y0 = mapY(0);
+            if (y0 > pad && y0 < h - pad) {
+                ctx.moveTo(pad, y0); ctx.lineTo(w - pad, y0);
+            }
+            ctx.stroke();
+
+            // Path
+            ctx.beginPath();
+            ctx.moveTo(mapX(dataX[0]), mapY(dataY[0]));
+            for (let i = 1; i < dataX.length; i++) {
+                ctx.lineTo(mapX(dataX[i]), mapY(dataY[i]));
+            }
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            if (fill) {
+                ctx.lineTo(mapX(dataX[dataX.length - 1]), mapY(0));
+                ctx.lineTo(mapX(dataX[0]), mapY(0));
+                ctx.fillStyle = color + '33'; // transparent
+                ctx.fill();
+            }
+
+            // Text
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px sans-serif';
+            ctx.fillText(minX.toFixed(0), mapX(minX), h - 10);
+            ctx.fillText(maxX.toFixed(0), mapX(maxX) - 10, h - 10);
+            ctx.fillText(maxY.toPrecision(3), 5, mapY(maxY));
+            ctx.fillText(minY.toPrecision(3), 5, mapY(minY));
+        }
+
+        function drawMain(res) {
+            const ctx = ctxs.main;
+            const w = ctx.canvas.width;
+            const h = ctx.canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            if (!res) return;
+
+            // Coordinate mapping
+            // Need to fit the entire stack + deflection in view.
+            // Stack height ~ sum(t). Length ~ L_max. Deflection ~ y_max.
+            // Aspect ratio of beam is extreme (L=40mm, t=0.2mm). 
+            // We MUST distort aspect ratio.
+
+            const pxPerMmX = (w - 100) / res.L_max;
+
+            // Y scaling: Find max extent
+            const maxDef = Math.min(...res.y); // Negative
+            const totalThick = state.shims.reduce((a, b) => a + b.thickness, 0);
+
+            // We want to visualize the stack thickness exaggerated?
+            let yExaggeration = 1.0;
+            // Scale deflection so it occupies say 30% of screen height
+            const targetDefPx = h * 0.4;
+            const pxPerMmY_Def = Math.abs(targetDefPx / maxDef);
+
+            // Scale thickness so distinct shims are visible.
+            // Say minimum 3px per shim.
+            const minPxPerShim = 4;
+            let pxPerMmY_Thick = minPxPerShim / 0.1; // Baseline
+
+            // To combine, we need a consistent Y scale if we want "realistic" bending shape?
+            // No, we usually exaggerate deflection AND thickness independently in engineering apps nicely.
+            // But if we curve the polygons, we should use one scale for Y coordinates to avoid shearing artifacts?
+            // Let's use one aggressive Master Y Scale.
+
+            // If deflection is 0 (load 0), default to reasonable thickness view.
+            let yScale = 50; // pixels per mm default
+            if (Math.abs(maxDef) > 1e-6) {
+                yScale = Math.min(2000, Math.abs((h * 0.6) / maxDef)); // Cap zoom
+            }
+            // Ensure thickness isn't invisible
+            if (yScale * 0.2 < 2) yScale = 20; // Lower bound
+
+            const originX = 50;
+            const originY = h / 3; // Start from top third, deflect down
+
+            // Draw Wall
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(originX - 20, originY - 50, 20, 100);
+
+            // Draw Shims
+            // We stack them upwards from y=0? Or downwards?
+            // Usually stack: Shim 1 on bottom, Shim 2 on top...
+            // Or typically largest shim on face, then smaller...
+            // Let's draw them centered or bottom aligned.
+            // Let's stack UP from Neutral Axis 0 for visualization.
+
+            let currentThickOffset = 0;
+
+            // Sort for rendering z-order? Not needed for 2D.
+            // Iterate shims.
+            // We need to map (x, y_curve + y_stack_offset)
+
+            // Beam shape is y_curve(x).
+            // Shim i is bounded by y_curve(x) + offset_bottom  AND y_curve(x) + offset_top.
+
+            state.shims.forEach((shim, idx) => {
+                ctx.beginPath();
+                ctx.fillStyle = `hsl(${210 + idx * 10}, 80%, 60%)`;
+                ctx.strokeStyle = `hsl(210, 50%, 40%)`;
+
+                // Top curve points
+                const offsetTop = currentThickOffset + shim.thickness;
+                const offsetBot = currentThickOffset;
+
+                // Construct polygon
+                // Top edge: x=0 to L
+                // Bottom edge: x=L to 0
+
+                function getScreenPt(ix, localY) {
+                    // interpolate y from physics result
+                    // ix is index in physics arrays
+                    // physics x[ix] matches? Yes linear grid
+
+                    const physX = res.x[ix];
+                    if (physX > shim.length) return null; // Past end of this shim
+                    const physY = res.y[ix]; // Centerline deflection ?
+
+                    // Screen Y = originY - (physY + localY) * yScale. 
+                    // (Canvas Y is down, so minus makes positive Y go up). 
+                    // Deflection physY is negative (down). So -(-val) -> positive (down screen).
+                    // WAIT. originY is "Zero". Down deflection should increase ScreenY.
+                    // ScreenY = originY + (-physY * yScale) ? NO.
+                    // Let's stick to: Up is -Y in Canvas.
+                    // Physics Y is +Up (usually), -Down.
+                    // ScreenY = originY - (physY + localY) * yScale.
+
+                    return {
+                        x: originX + physX * pxPerMmX,
+                        y: originY - (physY + localY) * yScale
+                    };
+                }
+
+                // Trace Top
+                let first = true;
+                const iMax = res.x.length;
+                let lastValidX = 0;
+
+                for (let i = 0; i < iMax; i++) {
+                    const pt = getScreenPt(i, offsetTop);
+                    if (!pt) {
+                        // We went past shim length.
+                        // Clamp to exact length? 
+                        // Simplified: break.
+                        break;
+                    }
+                    if (first) { ctx.moveTo(pt.x, pt.y); first = false; }
+                    else { ctx.lineTo(pt.x, pt.y); }
+                    lastValidX = i;
+                }
+
+                // Trace Bottom (Reverse)
+                for (let i = lastValidX; i >= 0; i--) {
+                    const pt = getScreenPt(i, offsetBot);
+                    ctx.lineTo(pt.x, pt.y);
+                }
+
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                currentThickOffset += shim.thickness;
+            });
+
+            // Draw Load Arrows (symbolic)
+            // Draw a few arrows on top of the stack along effective length
+            const arrowYStart = originY - (res.y[0] + currentThickOffset) * yScale - 20;
+            ctx.fillStyle = '#ef4444';
+            ctx.strokeStyle = '#ef4444';
+
+            // 5 arrows spaced out
+            const arrowCount = 5;
+            const arrowSpice = res.L_max / arrowCount;
+
+            for (let k = 1; k <= arrowCount; k++) {
+                const lx = k * arrowSpice - (arrowSpice / 2);
+                // Find y at this x
+                const idx = Math.floor(lx / res.L_max * (res.x.length - 1));
+                if (idx < res.x.length) {
+                    const ly = res.y[idx];
+                    const sx = originX + lx * pxPerMmX;
+                    const sy_surf = originY - (ly + currentThickOffset) * yScale;
+                    const sy_start = sy_surf - 30; // 30px arrow length
+
+                    // Arrow line
+                    ctx.beginPath();
+                    ctx.moveTo(sx, sy_start);
+                    ctx.lineTo(sx, sy_surf);
+                    ctx.stroke();
+
+                    // Arrow head
+                    ctx.beginPath();
+                    ctx.moveTo(sx - 3, sy_surf - 5);
+                    ctx.lineTo(sx, sy_surf);
+                    ctx.lineTo(sx + 3, sy_surf - 5);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function draw() {
+            const res = solvePhysics();
+            if (!res) return;
+
+            // Stats
+            // Display max deflection in mm
+            const maxD = Math.min(...res.y); // Negative
+            els.maxDef.innerText = maxD.toFixed(3) + " mm";
+
+            els.maxStress.innerText = res.maxStress.toFixed(1) + " MPa";
+            if (res.maxStress > 1000) els.maxStress.style.color = '#ef4444'; // Red if high
+            else els.maxStress.style.color = '#3b82f6';
+
+            // Graphs
+            drawMain(res);
+            drawGraph(ctxs.disp, res.x, res.y, "Deflection", "#3b82f6", true);
+            drawGraph(ctxs.moment, res.x, res.M, "Moment", "#10b981", true); // Green
+            drawGraph(ctxs.shear, res.x, res.V, "Shear", "#f59e0b", true); // Orange
+        }
+
+        // Logic Controls
+        function renderShimList() {
+            els.shimList.innerHTML = '';
+            state.shims.forEach((shim, idx) => {
+                const div = document.createElement('div');
+                div.className = 'shim-item';
+                div.innerHTML = `
+                    <div>
+                        <label>Length (mm)</label>
+                        <input type="number" value="${shim.length}" onchange="updateShim(${idx}, 'length', this.value)">
+                    </div>
+                    <div>
+                        <label>Thick (mm)</label>
+                        <input type="number" step="0.05" value="${shim.thickness}" onchange="updateShim(${idx}, 'thickness', this.value)">
+                    </div>
+                    <button class="btn btn-sm btn-danger" onclick="removeShim(${idx})">x</button>
+                `;
+                els.shimList.appendChild(div);
+            });
+        }
+
+        window.updateShim = (idx, key, val) => {
+            state.shims[idx][key] = parseFloat(val);
+            draw();
+        };
+
+        window.removeShim = (idx) => {
+            state.shims.splice(idx, 1);
+            renderShimList();
+            draw();
+        };
+
+        els.addShim.onclick = () => {
+            state.shims.push({ length: 20, thickness: 0.2 });
+            renderShimList();
+            draw();
+        };
+
+        els.sortShim.onclick = () => {
+            state.shims.sort((a, b) => b.length - a.length);
+            renderShimList();
+            draw();
+        };
+
+        // Global inputs
+        els.eMod.onchange = (e) => { state.E = parseFloat(e.target.value) * 1000; draw(); };
+        els.width.onchange = (e) => { state.width = parseFloat(e.target.value); draw(); };
+
+        // Share Functionality
+        els.shareBtn.onclick = () => {
+            // Encode state to base64
+            // We only need shims, E, width, load, maxLoad settings
+            const data = {
+                s: state.shims,
+                E: state.E,
+                w: state.width,
+                l: state.load,
+                mx: parseFloat(els.maxLoad.value)
+            };
+            const str = JSON.stringify(data);
+            const b64 = btoa(str);
+            const url = window.location.origin + window.location.pathname + '#' + b64;
+
+            navigator.clipboard.writeText(url).then(() => {
+                const originalText = els.shareBtn.innerText;
+                els.shareBtn.innerText = "Copied!";
+                setTimeout(() => els.shareBtn.innerText = originalText, 2000);
+            }).catch(err => {
+                prompt("Copy this URL:", url);
+            });
+        };
+
+        function loadFromUrl() {
+            if (window.location.hash) {
+                try {
+                    const b64 = window.location.hash.substring(1);
+                    const str = atob(b64);
+                    const data = JSON.parse(str);
+
+                    if (data.s) state.shims = data.s;
+                    if (data.E) state.E = data.E;
+                    if (data.w) state.width = data.w;
+                    if (data.l) state.load = data.l;
+
+                    // Update UI
+                    els.eMod.value = state.E / 1000;
+                    els.width.value = state.width;
+
+                    if (data.mx) els.maxLoad.value = data.mx;
+
+                    // Sync Slider
+                    // load = max * (slider/100) -> slider = 100 * load / max
+                    const max = parseFloat(els.maxLoad.value);
+                    const slideVal = Math.min(100, Math.max(0, 100 * state.load / max));
+                    els.slider.value = slideVal;
+
+                    els.forceVal.innerText = state.load.toFixed(2) + " N/mm";
+
+                } catch (e) {
+                    console.error("Failed to load state", e);
+                }
+            }
+        }
+
+        // Load Handling
+        function updateLoad() {
+            const max = parseFloat(els.maxLoad.value) || 10;
+            const pct = parseFloat(els.slider.value);
+            const val = max * (pct / 100);
+            state.load = val;
+            els.forceVal.innerText = val.toFixed(2) + " N/mm";
+            draw();
+        }
+
+        els.slider.oninput = updateLoad;
+        els.maxLoad.onchange = updateLoad;
+
+        // Init
+        loadFromUrl();
+        renderShimList();
+        resizeCanvases(); // Triggers draw
+        if (!window.location.hash) updateLoad();
+        else draw(); // If loaded from hash, just draw, don't overwrite load with slider default
+
+    </script>
+</body>
+
+</html>
