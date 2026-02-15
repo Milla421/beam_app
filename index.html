@@ -386,6 +386,120 @@
             flex-shrink: 0;
         }
 
+        /* Math Equations Panel */
+        .math-panel {
+            background: var(--card-bg);
+            border: var(--card-border);
+            border-radius: 14px;
+            padding: 20px 24px;
+            flex-shrink: 0;
+        }
+
+        .math-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .math-panel-header h3 {
+            margin: 0;
+            font-size: 1rem;
+            color: white;
+            font-weight: 700;
+        }
+
+        .math-section {
+            margin-bottom: 18px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .math-section:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .math-section-title {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .math-formula {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #e2e8f0;
+        }
+
+        .math-formula .formula-label {
+            color: #94a3b8;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 500;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .math-formula .formula-eq {
+            color: #f8fafc;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .math-formula .formula-result {
+            color: #22d3ee;
+            font-weight: 700;
+            margin-top: 4px;
+            display: block;
+        }
+
+        .math-shim-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            margin-top: 6px;
+        }
+
+        .math-shim-table th {
+            text-align: left;
+            padding: 6px 10px;
+            color: #94a3b8;
+            font-weight: 600;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .math-shim-table td {
+            padding: 5px 10px;
+            color: #e2e8f0;
+            font-family: 'Courier New', monospace;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .math-shim-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .math-shim-table .total-row td {
+            color: #22d3ee;
+            font-weight: 700;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 8px;
+        }
+
         @media (max-width: 1000px) {
             .graphs-row {
                 grid-template-columns: 1fr;
@@ -523,6 +637,18 @@
             </div>
         </div>
 
+        <!-- Live Math Equations Panel -->
+        <div class="math-panel" id="math-panel">
+            <div class="math-panel-header">
+                <h3>📐 Live Calculation Sheet</h3>
+                <button class="btn btn-sm" id="toggle-math-btn"
+                    style="background:rgba(255,255,255,0.1);color:#94a3b8;border:1px solid rgba(255,255,255,0.1);width:auto;padding:4px 10px;font-size:0.75rem;">Collapse</button>
+            </div>
+            <div id="math-content">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -542,16 +668,16 @@
             ]
         };
 
-        // Shim color palette — distinct hues
+        // Shim color palette — maximally distinct hues across full spectrum
         const shimColors = [
-            { fill: 'hsla(210, 80%, 60%, 0.75)', stroke: 'hsla(210, 80%, 40%, 1)' },
-            { fill: 'hsla(190, 75%, 55%, 0.75)', stroke: 'hsla(190, 75%, 35%, 1)' },
-            { fill: 'hsla(160, 70%, 50%, 0.75)', stroke: 'hsla(160, 70%, 32%, 1)' },
-            { fill: 'hsla(270, 65%, 60%, 0.75)', stroke: 'hsla(270, 65%, 38%, 1)' },
-            { fill: 'hsla(35, 80%, 55%, 0.75)', stroke: 'hsla(35, 80%, 35%, 1)' },
-            { fill: 'hsla(330, 70%, 58%, 0.75)', stroke: 'hsla(330, 70%, 38%, 1)' },
-            { fill: 'hsla(50, 75%, 50%, 0.75)', stroke: 'hsla(50, 75%, 32%, 1)' },
-            { fill: 'hsla(140, 65%, 48%, 0.75)', stroke: 'hsla(140, 65%, 30%, 1)' },
+            { fill: 'hsla(0, 85%, 60%, 0.80)', stroke: 'hsla(0, 85%, 40%, 1)' },    // Red
+            { fill: 'hsla(210, 90%, 55%, 0.80)', stroke: 'hsla(210, 90%, 35%, 1)' },   // Blue
+            { fill: 'hsla(120, 70%, 45%, 0.80)', stroke: 'hsla(120, 70%, 28%, 1)' },   // Green
+            { fill: 'hsla(45, 95%, 55%, 0.80)', stroke: 'hsla(45, 95%, 35%, 1)' },    // Amber
+            { fill: 'hsla(280, 75%, 60%, 0.80)', stroke: 'hsla(280, 75%, 38%, 1)' },   // Purple
+            { fill: 'hsla(175, 80%, 45%, 0.80)', stroke: 'hsla(175, 80%, 28%, 1)' },   // Teal
+            { fill: 'hsla(340, 85%, 58%, 0.80)', stroke: 'hsla(340, 85%, 38%, 1)' },   // Pink
+            { fill: 'hsla(80, 75%, 48%, 0.80)', stroke: 'hsla(80, 75%, 30%, 1)' },    // Lime
         ];
 
         // ============================================================
@@ -694,6 +820,166 @@
             return { S, X, Y, Theta, V, M, maxStress, maxMomentMag, tipDeflection, L_max, N };
         }
 
+        // ============================================================
+        //  LIVE MATH EQUATIONS PANEL
+        // ============================================================
+
+        function updateMathPanel(res) {
+            const mc = document.getElementById('math-content');
+            if (!mc || mc.style.display === 'none') return;
+            if (!res) { mc.innerHTML = '<p style="color:#64748b;">Add shims to see calculations.</p>'; return; }
+
+            const E_GPa = state.E / 1000;
+            const E_MPa = state.E;
+            const b = state.width;
+            const w = state.load;
+            const L = res.L_max;
+            const shims = state.shims;
+
+            // --- 1. Stiffness per shim ---
+            let stiffnessRows = '';
+            let EI_total = 0;
+            shims.forEach((s, idx) => {
+                const I_i = (b * Math.pow(s.thickness, 3)) / 12;
+                const EI_i = E_MPa * I_i;
+                EI_total += EI_i;
+                const col = shimColors[idx % shimColors.length];
+                stiffnessRows += `<tr>
+                    <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${col.fill.replace('0.80', '1')};margin-right:6px;"></span>Shim ${idx + 1}</td>
+                    <td>${s.length.toFixed(1)}</td>
+                    <td>${s.thickness.toFixed(3)}</td>
+                    <td>${I_i.toFixed(6)}</td>
+                    <td>${EI_i.toFixed(2)}</td>
+                </tr>`;
+            });
+
+            // --- 2. Analytical results (small deflection, single equivalent beam) ---
+            const V_max = w * L;
+            const M_max = (w * L * L) / 2;
+            const delta_analytical = (w * Math.pow(L, 4)) / (8 * EI_total);
+            const t_max = Math.max(...shims.map(s => s.thickness));
+            const sigma_max = M_max * (t_max / 2) / (EI_total / E_MPa);
+
+            let html = `
+            <!-- Section 1: Input Parameters -->
+            <div class="math-section">
+                <div class="math-section-title">Input Parameters</div>
+                <div class="math-formula">
+                    <span class="formula-eq">E = ${E_GPa} GPa = ${E_MPa.toFixed(0)} MPa (N/mm²)</span><br>
+                    <span class="formula-eq">b = ${b.toFixed(2)} mm  (width/diameter)</span><br>
+                    <span class="formula-eq">w = ${w.toFixed(4)} N/mm  (distributed load)</span><br>
+                    <span class="formula-eq">L = ${L.toFixed(2)} mm  (longest shim = beam length)</span>
+                </div>
+            </div>
+
+            <!-- Section 2: Stiffness -->
+            <div class="math-section">
+                <div class="math-section-title">Stiffness Calculation (Unbonded Stack)</div>
+                <div class="math-formula">
+                    <span class="formula-label">Second Moment of Area per shim (unbonded → no parallel axis theorem)</span>
+                    <span class="formula-eq">I_i = b × t_i³ / 12</span>
+                </div>
+                <div class="math-formula">
+                    <span class="formula-label">Flexural rigidity per shim</span>
+                    <span class="formula-eq">EI_i = E × I_i</span>
+                </div>
+                <div class="math-formula">
+                    <span class="formula-label">Total stack stiffness (each shim bends independently)</span>
+                    <span class="formula-eq">EI_total = Σ EI_i  (sum only shims that cover position s)</span>
+                </div>
+                <table class="math-shim-table">
+                    <thead>
+                        <tr><th>Shim</th><th>L (mm)</th><th>t (mm)</th><th>I (mm⁴)</th><th>EI (N·mm²)</th></tr>
+                    </thead>
+                    <tbody>
+                        ${stiffnessRows}
+                        <tr class="total-row">
+                            <td colspan="4">EI_total (at root, all shims active)</td>
+                            <td>${EI_total.toFixed(2)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Section 3: Shear Force -->
+            <div class="math-section">
+                <div class="math-section-title">Shear Force</div>
+                <div class="math-formula">
+                    <span class="formula-label">Distributed load → shear at any position x from root</span>
+                    <span class="formula-eq">V(x) = w × (L − x)</span><br>
+                    <span class="formula-label">Maximum shear (at root, x = 0)</span>
+                    <span class="formula-eq">V_max = w × L = ${w.toFixed(4)} × ${L.toFixed(2)}</span>
+                    <span class="formula-result">V_max = ${V_max.toFixed(4)} N</span>
+                </div>
+            </div>
+
+            <!-- Section 4: Bending Moment -->
+            <div class="math-section">
+                <div class="math-section-title">Bending Moment</div>
+                <div class="math-formula">
+                    <span class="formula-label">Moment at position x (cantilever, fixed at root)</span>
+                    <span class="formula-eq">M(x) = −w × (L − x)² / 2</span><br>
+                    <span class="formula-label">Maximum moment magnitude (at root, x = 0)</span>
+                    <span class="formula-eq">|M_max| = w × L² / 2 = ${w.toFixed(4)} × ${L.toFixed(2)}² / 2</span>
+                    <span class="formula-result">|M_max| = ${M_max.toFixed(4)} N·mm</span>
+                </div>
+            </div>
+
+            <!-- Section 5: Deflection -->
+            <div class="math-section">
+                <div class="math-section-title">Tip Deflection</div>
+                <div class="math-formula">
+                    <span class="formula-label">Euler-Bernoulli (small deflection, linear analytical solution)</span>
+                    <span class="formula-eq">δ_tip = w × L⁴ / (8 × EI)</span>
+                    <span class="formula-eq">     = ${w.toFixed(4)} × ${L.toFixed(2)}⁴ / (8 × ${EI_total.toFixed(2)})</span>
+                    <span class="formula-result">δ_analytical = ${delta_analytical.toFixed(4)} mm</span>
+                </div>
+                <div class="math-formula">
+                    <span class="formula-label">Arc-length solver (geometrically nonlinear — actual result)</span>
+                    <span class="formula-eq">Uses numerical integration: dθ/ds = M(s)/EI(s), dx = cos(θ)ds, dy = sin(θ)ds</span>
+                    <span class="formula-result">δ_numerical = ${Math.abs(res.tipDeflection).toFixed(4)} mm</span>
+                </div>
+                <div class="math-formula">
+                    <span class="formula-label">Note: The analytical and numerical values match for small deflections.</span>
+                    <span class="formula-label">For large deflections, the arc-length solver is more accurate as it accounts for geometric nonlinearity.</span>
+                </div>
+            </div>
+
+            <!-- Section 6: Bending Stress -->
+            <div class="math-section">
+                <div class="math-section-title">Maximum Bending Stress</div>
+                <div class="math-formula">
+                    <span class="formula-label">Stress at extreme fiber of the thickest shim (t = ${t_max.toFixed(3)} mm)</span>
+                    <span class="formula-eq">σ = E × |κ| × (t/2)</span>
+                    <span class="formula-eq">  = M_max × (t/2) / I_total   (small deflection equivalent)</span>
+                    <span class="formula-eq">  = ${M_max.toFixed(4)} × (${t_max.toFixed(3)}/2) / ${(EI_total / E_MPa).toFixed(6)}</span>
+                    <span class="formula-result">σ_max ≈ ${sigma_max.toFixed(2)} MPa  (analytical)</span>
+                    <span class="formula-result">σ_max = ${res.maxStress.toFixed(2)} MPa  (from solver)</span>
+                </div>
+            </div>
+
+            <!-- Section 7: Numerical Method -->
+            <div class="math-section">
+                <div class="math-section-title">Numerical Method Summary</div>
+                <div class="math-formula">
+                    <span class="formula-label">Arc-length integration (N = 500 grid points, ds = ${(L / (500 - 1)).toFixed(4)} mm)</span>
+                    <span class="formula-eq">1. Shear:  V[i] = V[i+1] + w × ds   (backward from free tip)</span>
+                    <span class="formula-eq">2. Moment: M[i] = M[i+1] − ½(V[i]+V[i+1]) × ds  (trapezoidal)</span>
+                    <span class="formula-eq">3. Curvature: κ[i] = M[i] / EI[i]</span>
+                    <span class="formula-eq">4. Angle: θ[i] = θ[i-1] + ½(κ[i-1]+κ[i]) × ds    (trapezoidal)</span>
+                    <span class="formula-eq">5. Position: X[i] = X[i-1] + cos(θ_avg) × ds</span>
+                    <span class="formula-eq">             Y[i] = Y[i-1] + sin(θ_avg) × ds</span>
+                </div>
+                <div class="math-formula">
+                    <span class="formula-label">Boundary conditions</span>
+                    <span class="formula-eq">Fixed root:  θ(0) = 0,  X(0) = 0,  Y(0) = 0</span>
+                    <span class="formula-eq">Free tip:    V(L) = 0,  M(L) = 0</span>
+                </div>
+            </div>`;
+
+            mc.innerHTML = html;
+        }
+
 
         // ============================================================
         //  RENDERING — Main Beam Visualization
@@ -718,6 +1004,9 @@
             els.maxStress.style.color = (res.maxStress > 1000) ? "#ef4444" : "white";
             els.forceVal.innerText = state.load.toFixed(2) + " N/mm";
             els.maxMoment.innerText = res.maxMomentMag.toFixed(1) + " N·mm";
+
+            // --- Update live math equations ---
+            updateMathPanel(res);
 
             // ---- MAIN CANVAS ----
             const ctx = ctxs.main;
@@ -1175,7 +1464,7 @@
                 item.className = 'shim-item';
                 item.innerHTML = `
                     <div>
-                        <label><span class="color-dot" style="background:${col.fill.replace('0.75', '1')}"></span>Length (mm)</label>
+                        <label><span class="color-dot" style="background:${col.fill.replace('0.80', '1')}"></span>Length (mm)</label>
                         <input type="number" value="${shim.length}" step="1" min="0.1"
                             onchange="updateShim(${idx}, 'length', this.value)">
                     </div>
@@ -1210,6 +1499,20 @@
             state.shims.sort((a, b) => b.length - a.length);
             renderShimList();
             updateState();
+        };
+
+        // Math panel collapse toggle
+        document.getElementById('toggle-math-btn').onclick = () => {
+            const mc = document.getElementById('math-content');
+            const btn = document.getElementById('toggle-math-btn');
+            if (mc.style.display === 'none') {
+                mc.style.display = '';
+                btn.textContent = 'Collapse';
+                draw(); // Re-render to populate panel
+            } else {
+                mc.style.display = 'none';
+                btn.textContent = 'Expand';
+            }
         };
 
 
@@ -1278,6 +1581,7 @@
         window.onresize = resizeCanvases;
 
         loadFromUrl();
+        state.shims.sort((a, b) => b.length - a.length);  // Longest shim on top
         renderShimList();
         setTimeout(resizeCanvases, 100);
     </script>
