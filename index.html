@@ -275,10 +275,11 @@
             overflow-y: auto;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            grid-template-rows: auto 1fr 1fr;
+            grid-template-rows: auto minmax(300px, 1.2fr) minmax(220px, 1fr);
             gap: 16px;
             max-width: 1600px;
             margin: 0 auto;
+            align-content: start;
         }
 
         .stats-container {
@@ -303,11 +304,14 @@
         }
 
         .stat-value {
-            font-size: 1.8rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: white;
             margin-bottom: 2px;
             font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .stat-label {
@@ -713,6 +717,12 @@
             const H = ctx.canvas._logicalHeight || ctx.canvas.height;
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
+            // Clip to canvas bounds to prevent any drawing outside
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, W, H);
+            ctx.clip();
+
             // --- Scaling ---
             // Use reference (max load) solution for stable scale
             const padL = 70, padR = 40, padT = 50, padB = 40;
@@ -769,6 +779,13 @@
                 ctx.lineTo(wallX - wallW - 8, hy + 8);
                 ctx.stroke();
             }
+
+            // --- Clip beam drawing to the right of the wall ---
+            // This prevents the beam from rendering past the y-axis (wall)
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(originX, 0, W - originX, H);
+            ctx.clip();
 
             // --- Pre-calculate screen points from actual solution ---
             const screenPts = [];
@@ -917,6 +934,11 @@
                 ctx.stroke();
                 ctx.setLineDash([]);
             }
+
+            // Restore beam clipping (right of wall)
+            ctx.restore();
+            // Restore canvas bounds clipping
+            ctx.restore();
 
             // --- Auxiliary Graphs ---
             drawGraph(ctxs.disp, res.X, res.Y, "Deflection", "#3b82f6", "x (mm)", "y (mm)");
