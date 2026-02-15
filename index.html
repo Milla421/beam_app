@@ -817,7 +817,60 @@
             // Tip deflection (at the last point = L_max)
             const tipDeflection = Y[N - 1];
 
-            return { S, X, Y, Theta, V, M, maxStress, maxMomentMag, tipDeflection, L_max, N };
+            // --- Inter-shim analysis ---
+            // Compute per-shim moment share and tip reaction forces
+            const shimAnalysis = [];
+            state.shims.forEach((shim, idx) => {
+                const I_i = (state.width * Math.pow(shim.thickness, 3)) / 12;
+                const EI_i = state.E * I_i;
+
+                // Find grid index closest to this shim's tip
+                const tipIdx = Math.min(N - 1, Math.round(shim.length / ds));
+
+                // Moment carried by this shim at its tip
+                const EI_at_tip = EI_arr[tipIdx];
+                const M_shim_tip = (EI_i / EI_at_tip) * M[tipIdx];
+
+                // Moment carried by this shim at root
+                const EI_at_root = EI_arr[0];
+                const M_shim_root = (EI_i / EI_at_root) * M[0];
+
+                // Reaction force at shim tip: the shear this shim carries
+                // V_i(s) = (EI_i / EI_total(s)) × V_total(s) for uniform curvature sharing
+                const V_shim_tip = (EI_i / EI_at_tip) * V[tipIdx];
+
+                // This reaction force is transferred to adjacent shims through contact
+                shimAnalysis.push({
+                    shimIdx: idx,
+                    length: shim.length,
+                    thickness: shim.thickness,
+                    EI: EI_i,
+                    I: I_i,
+                    momentAtRoot: M_shim_root,
+                    momentAtTip: M_shim_tip,
+                    reactionForce: V_shim_tip  // Force transmitted to underlying shim
+                });
+            });
+
+            // --- Single-shim comparison (longest shim alone) ---
+            // Solve again with only the longest shim to show support effect
+            const longestShim = state.shims.reduce((a, b) => a.length >= b.length ? a : b, state.shims[0]);
+            const I_single = (state.width * Math.pow(longestShim.thickness, 3)) / 12;
+            const EI_single = state.E * I_single;
+            let singleTipDeflection = 0;
+            if (EI_single > 1e-12 && state.load > 0) {
+                // Quick analytical estimate for comparison
+                singleTipDeflection = (state.load * Math.pow(L_max, 4)) / (8 * EI_single);
+            }
+            const stackAnalytical = (state.load * Math.pow(L_max, 4)) / (8 * EI_arr[0]);
+            const supportFactor = (EI_single > 1e-12 && singleTipDeflection > 1e-12)
+                ? (1 - Math.abs(tipDeflection) / singleTipDeflection) * 100
+                : 0;
+
+            return {
+                S, X, Y, Theta, V, M, maxStress, maxMomentMag, tipDeflection, L_max, N,
+                shimAnalysis, singleTipDeflection, stackAnalytical, supportFactor, EI_root: EI_arr[0]
+            };
         }
 
         // ============================================================
@@ -976,6 +1029,68 @@
                     <span class="formula-eq">Free tip:    V(L) = 0,  M(L) = 0</span>
                 </div>
             </div>`;
+
+            // --- Section 8: Inter-Shim Reaction Forces ---
+            if (res.shimAnalysis && state.load > 0) {
+                let interRows = '';
+                res.shimAnalysis.forEach((sa, idx) => {
+                    const col = shimColors[idx % shimColors.length];
+                    interRows += `<tr>
+                        <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${col.fill.replace('0.80', '1')};margin-right:6px;"></span>Shim ${idx + 1}</td>
+                        <td>${sa.length.toFixed(1)}</td>
+                        <td>${Math.abs(sa.momentAtRoot).toFixed(4)}</td>
+                        <td>${((sa.EI / res.EI_root) * 100).toFixed(1)}%</td>
+                        <td>${Math.abs(sa.reactionForce).toFixed(4)}</td>
+                    </tr>`;
+                });
+
+                html += `
+            <!-- Section 8: Inter-Shim Reaction Forces -->
+            <div class="math-section">
+                <div class="math-section-title">Inter-Shim Reaction Forces</div>
+                <div class="math-formula">
+                    <span class="formula-label">How shims share the load (unbonded contact — same curvature)</span>
+                    <span class="formula-eq">M_i(s) = (EI_i / EI_total(s)) × M(s)</span>
+                    <span class="formula-eq">V_i(s) = (EI_i / EI_total(s)) × V(s)</span><br>
+                    <span class="formula-label">Reaction force at shim tip — force transmitted to adjacent shim through contact</span>
+                    <span class="formula-eq">R_i = V_i(L_i) = (EI_i / EI_total(L_i)) × V(L_i)</span>
+                </div>
+                <table class="math-shim-table">
+                    <thead>
+                        <tr><th>Shim</th><th>L (mm)</th><th>|M| at root (N·mm)</th><th>Load share</th><th>Tip reaction (N)</th></tr>
+                    </thead>
+                    <tbody>
+                        ${interRows}
+                    </tbody>
+                </table>
+                <div class="math-formula" style="margin-top:10px;">
+                    <span class="formula-label">Physical meaning</span>
+                    <span class="formula-eq">Each shim transfers a reaction force at its tip to the shim below (or above).</span>
+                    <span class="formula-eq">These contact forces act UPWARD against the applied load → reducing deflection.</span>
+                    <span class="formula-eq">Shorter shims stiffen the root region, spreading the load resistance.</span>
+                </div>
+            </div>
+
+            <!-- Section 9: Stack vs Single Shim Comparison -->
+            <div class="math-section">
+                <div class="math-section-title">Stack Support Effect</div>
+                <div class="math-formula">
+                    <span class="formula-label">Deflection if ONLY the longest shim (no stack support)</span>
+                    <span class="formula-eq">δ_single = w × L⁴ / (8 × EI_single)</span>
+                    <span class="formula-eq">        = ${w.toFixed(4)} × ${L.toFixed(2)}⁴ / (8 × ${(state.E * (state.width * Math.pow(shims.reduce((a, b) => a.length >= b.length ? a : b).thickness, 3)) / 12).toFixed(2)})</span>
+                    <span class="formula-result">δ_single = ${res.singleTipDeflection.toFixed(4)} mm</span>
+                </div>
+                <div class="math-formula">
+                    <span class="formula-label">Actual deflection WITH full shim stack</span>
+                    <span class="formula-result">δ_stack = ${Math.abs(res.tipDeflection).toFixed(4)} mm</span>
+                </div>
+                <div class="math-formula">
+                    <span class="formula-label">Support factor — deflection reduction due to inter-shim support</span>
+                    <span class="formula-eq">Support = (1 − δ_stack / δ_single) × 100%</span>
+                    <span class="formula-result" style="font-size:1.1rem;">Stack reduces deflection by ${res.supportFactor.toFixed(1)}%</span>
+                </div>
+            </div>`;
+            }
 
             mc.innerHTML = html;
         }
