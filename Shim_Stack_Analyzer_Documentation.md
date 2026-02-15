@@ -96,6 +96,55 @@ The website includes a **Live Calculation Sheet** panel that updates in real tim
 
 This allows any user to **follow along with every calculation** and verify accuracy independently.
 
+### Inter-Shim Reaction Forces
+
+When shims are stacked, they press against each other through contact. The shorter shims support the longer ones, creating **reaction forces** that resist the applied load and reduce deflection.
+
+**How shims share the load:**
+
+Since all shims in contact share the same curvature (same bending shape), each shim carries a portion of the total moment proportional to its own flexural rigidity:
+
+```
+M_i(s) = (EI_i / EI_total(s)) × M_total(s)
+V_i(s) = (EI_i / EI_total(s)) × V_total(s)
+```
+
+where `EI_i = E × (b × tᵢ³ / 12)` is the stiffness of shim `i`, and `EI_total(s)` is the total stiffness of all shims active at position `s`.
+
+**Reaction force at each shim tip:**
+
+At the free end of each shorter shim, it transfers a concentrated contact force to the adjacent shim:
+
+```
+R_i = V_i(L_i) = (EI_i / EI_total(L_i)) × V_total(L_i)
+```
+
+This reaction force acts **upward**, opposing the applied downward load and reducing the beam's overall deflection.
+
+**Example — 5-shim stack (default configuration):**
+
+| Shim | Length (mm) | Physical meaning |
+|---|---|---|
+| Shim 1 (longest) | 40 | Carries the full load beyond all other shims |
+| Shim 2 | 35 | Supports Shim 1 from root to 35 mm; at 35 mm, transfers reaction force R₂ |
+| Shim 3 | 30 | Supports from root to 30 mm; transfers R₃ at its tip |
+| Shim 4 | 25 | Supports from root to 25 mm; transfers R₄ at its tip |
+| Shim 5 (shortest) | 20 | Supports from root to 20 mm; transfers R₅ at its tip |
+
+Each shorter shim stiffens the root region, causing the beam to bend less near the wall. The combined effect is that the stack deflects **significantly less** than the longest shim alone.
+
+### Stack Support Effect
+
+The tool quantifies this by comparing:
+
+```
+δ_single = w × L⁴ / (8 × EI_single)     ← deflection with only the longest shim
+δ_stack  = numerical solver result         ← deflection with full stack
+Support Factor = (1 − δ_stack / δ_single) × 100%
+```
+
+A typical 5-shim stack can reduce tip deflection by **60–80%** compared to a single shim alone.
+
 ---
 
 ## Technology

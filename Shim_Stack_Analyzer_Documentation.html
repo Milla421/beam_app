@@ -325,6 +325,75 @@
     <p>This allows any user to <strong>follow along with every calculation</strong> and verify accuracy independently.
     </p>
 
+    <h2>Inter-Shim Reaction Forces</h2>
+    <p>When shims are stacked, they press against each other through contact. The shorter shims support the longer ones,
+        creating <strong>reaction forces</strong> that resist the applied load and reduce deflection.</p>
+
+    <h3>How Shims Share the Load</h3>
+    <p>Since all shims in contact share the same curvature (same bending shape), each shim carries a portion of the
+        total moment proportional to its own flexural rigidity:</p>
+    <pre>M_i(s) = (EI_i / EI_total(s)) × M_total(s)
+V_i(s) = (EI_i / EI_total(s)) × V_total(s)</pre>
+    <p>where <code>EI_i = E × (b × tᵢ³ / 12)</code> is the stiffness of shim <code>i</code>, and
+        <code>EI_total(s)</code> is the total stiffness of all shims active at position <code>s</code>.</p>
+
+    <h3>Reaction Force at Each Shim Tip</h3>
+    <p>At the free end of each shorter shim, it transfers a concentrated contact force to the adjacent shim:</p>
+    <pre>R_i = V_i(L_i) = (EI_i / EI_total(L_i)) × V_total(L_i)</pre>
+    <p>This reaction force acts <strong>upward</strong>, opposing the applied downward load and reducing the beam's
+        overall deflection.</p>
+
+    <h3>Physical Meaning — Per Shim</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Shim</th>
+                <th>Length (mm)</th>
+                <th>Physical Meaning</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Shim 1 (longest)</td>
+                <td>40</td>
+                <td>Carries the full load beyond all other shims</td>
+            </tr>
+            <tr>
+                <td>Shim 2</td>
+                <td>35</td>
+                <td>Supports Shim 1 from root to 35 mm; at 35 mm, transfers reaction force R₂</td>
+            </tr>
+            <tr>
+                <td>Shim 3</td>
+                <td>30</td>
+                <td>Supports from root to 30 mm; transfers R₃ at its tip</td>
+            </tr>
+            <tr>
+                <td>Shim 4</td>
+                <td>25</td>
+                <td>Supports from root to 25 mm; transfers R₄ at its tip</td>
+            </tr>
+            <tr>
+                <td>Shim 5 (shortest)</td>
+                <td>20</td>
+                <td>Supports from root to 20 mm; transfers R₅ at its tip</td>
+            </tr>
+        </tbody>
+    </table>
+    <p>Each shorter shim stiffens the root region, causing the beam to bend less near the wall. The combined effect is
+        that the stack deflects <strong>significantly less</strong> than the longest shim alone.</p>
+
+    <h3>Stack Support Effect</h3>
+    <p>The tool quantifies this by comparing deflection with and without the stack:</p>
+    <pre>δ_single = w × L⁴ / (8 × EI_single)     ← deflection with only the longest shim
+δ_stack  = numerical solver result         ← deflection with full stack
+Support Factor = (1 − δ_stack / δ_single) × 100%</pre>
+
+    <div class="highlight-box">
+        A typical 5-shim stack can reduce tip deflection by <strong>60–80%</strong> compared to a single shim alone. The
+        exact percentage is shown live on the website as the "Stack Support Effect".
+    </div>
+
     <hr>
 
     <h2>Technology</h2>
