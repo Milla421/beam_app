@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Shim Stack Analyzer — Technical Documentation</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            color: #1e293b;
+            line-height: 1.7;
+            max-width: 850px;
+            margin: 0 auto;
+            padding: 48px 40px;
+            background: white;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+            border-bottom: 3px solid #3b82f6;
+            padding-bottom: 12px;
+        }
+
+        h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #1e40af;
+            margin-top: 36px;
+            margin-bottom: 14px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        h3 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #334155;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            margin-bottom: 12px;
+        }
+
+        a {
+            color: #2563eb;
+            text-decoration: none;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 14px 0 20px;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: #f1f5f9;
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+            color: #334155;
+            border-bottom: 2px solid #cbd5e1;
+        }
+
+        td {
+            padding: 8px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #475569;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.88em;
+            color: #1e40af;
+        }
+
+        pre {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            overflow-x: auto;
+            margin: 12px 0 18px;
+            color: #334155;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: #64748b;
+            margin-bottom: 28px;
+        }
+
+        .highlight-box {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 14px 18px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0 20px;
+            font-size: 0.92rem;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid #e2e8f0;
+            margin: 32px 0;
+        }
+
+        ul,
+        ol {
+            margin: 8px 0 16px 24px;
+        }
+
+        li {
+            margin-bottom: 6px;
+        }
+
+        @media print {
+            body {
+                padding: 20px;
+            }
+
+            h2 {
+                page-break-after: avoid;
+            }
+
+            table,
+            pre {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Shim Stack Analyzer</h1>
+    <p class="subtitle">Technical Documentation</p>
+
+    <h2>Overview</h2>
+    <p>The <strong>Shim Stack Analyzer</strong> is a browser-based engineering tool that simulates the structural
+        behaviour of a cantilever beam composed of stacked shims (thin metal plates). It calculates and visualises
+        deflection, bending moment, shear force, and bending stress under a uniformly distributed load.</p>
+
+    <div class="highlight-box">
+        <strong>Live URL:</strong> <a
+            href="https://milla421.github.io/beam_app/">https://milla421.github.io/beam_app/</a>
+    </div>
+
+    <h2>What It Does</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Feature</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Beam Visualisation</strong></td>
+                <td>Animated beam that bends under load with colour-coded shim layers</td>
+            </tr>
+            <tr>
+                <td><strong>Deflection Graph</strong></td>
+                <td>Shows the deformed shape (X vs Y displacement)</td>
+            </tr>
+            <tr>
+                <td><strong>Bending Moment Graph</strong></td>
+                <td>Displays moment distribution along the beam</td>
+            </tr>
+            <tr>
+                <td><strong>Shear Force Graph</strong></td>
+                <td>Shows shear force distribution along the beam</td>
+            </tr>
+            <tr>
+                <td><strong>Live Math Sheet</strong></td>
+                <td>Real-time equations panel showing every calculation step with actual numerical values</td>
+            </tr>
+            <tr>
+                <td><strong>Shareable Links</strong></td>
+                <td>Configuration can be shared via URL parameters</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>How It Works</h2>
+
+    <h3>Input Parameters</h3>
+    <p>Users configure the following via the sidebar:</p>
+    <ul>
+        <li><strong>Elastic Modulus (E):</strong> Material stiffness in GPa (default: 200 GPa for steel)</li>
+        <li><strong>Width (b):</strong> Shim width or diameter in mm</li>
+        <li><strong>Distributed Load (w):</strong> Applied uniform load in N/mm, controlled via slider</li>
+        <li><strong>Shim Stack:</strong> Each shim has a length (mm) and thickness (mm). Shims are automatically sorted
+            longest-first.</li>
+    </ul>
+
+    <h3>Physics Model</h3>
+    <p>The tool models a <strong>cantilever beam</strong> (fixed at one end, free at the other) loaded with a uniformly
+        distributed load.</p>
+    <pre>    w (N/mm) ↓↓↓↓↓↓↓↓↓↓↓↓
+    ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+    █ ← Fixed wall (root)     Free tip →</pre>
+
+    <p><strong>Unbonded shim stack:</strong> The shims are free to slide relative to each other. Each shim bends
+        independently, and the total stiffness is:</p>
+    <pre>EI_total = Σ E × (b × tᵢ³ / 12)</pre>
+    <p>where <code>tᵢ</code> is the thickness of each shim. This differs from a bonded stack, which would require the
+        parallel axis theorem.</p>
+
+    <h3>Numerical Method</h3>
+    <p>The solver uses <strong>arc-length integration</strong>, a geometrically nonlinear method that accurately handles
+        large deflections:</p>
+    <ol>
+        <li><strong>Shear Force</strong> — Integrated backward from the free tip: <code>V(x) = w × (L − x)</code></li>
+        <li><strong>Bending Moment</strong> — Trapezoidal rule: <code>M(x) = −w × (L − x)² / 2</code></li>
+        <li><strong>Curvature</strong> — From moment and stiffness: <code>κ = M / EI</code></li>
+        <li><strong>Angle &amp; Position</strong> — Forward-integrated using arc-length coordinates:
+            <ul>
+                <li><code>θ(s) = ∫ κ(s) ds</code></li>
+                <li><code>X(s) = ∫ cos(θ) ds</code></li>
+                <li><code>Y(s) = ∫ sin(θ) ds</code></li>
+            </ul>
+        </li>
+    </ol>
+    <p>Integration uses <strong>500 grid points</strong> with the trapezoidal rule for second-order accuracy.</p>
+
+    <h3>Boundary Conditions</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Location</th>
+                <th>Condition</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Root (wall, x = 0)</td>
+                <td>θ = 0, X = 0, Y = 0 (fixed)</td>
+            </tr>
+            <tr>
+                <td>Tip (free end, x = L)</td>
+                <td>V = 0, M = 0 (no force/moment)</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>Key Equations Summary</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Quantity</th>
+                <th>Formula</th>
+                <th>Units</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Second moment of area</td>
+                <td><code>I = b × t³ / 12</code></td>
+                <td>mm⁴</td>
+            </tr>
+            <tr>
+                <td>Flexural rigidity</td>
+                <td><code>EI = E × I</code></td>
+                <td>N·mm²</td>
+            </tr>
+            <tr>
+                <td>Max shear force</td>
+                <td><code>V_max = w × L</code></td>
+                <td>N</td>
+            </tr>
+            <tr>
+                <td>Max bending moment</td>
+                <td><code>M_max = w × L² / 2</code></td>
+                <td>N·mm</td>
+            </tr>
+            <tr>
+                <td>Tip deflection (analytical)</td>
+                <td><code>δ = w × L⁴ / (8 × EI)</code></td>
+                <td>mm</td>
+            </tr>
+            <tr>
+                <td>Max bending stress</td>
+                <td><code>σ = E × |κ| × (t/2)</code></td>
+                <td>MPa</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Live Calculation Sheet</h2>
+    <p>The website includes a <strong>Live Calculation Sheet</strong> panel that updates in real time as the user
+        adjusts parameters. It displays:</p>
+    <ol>
+        <li>All input parameter values</li>
+        <li>Per-shim stiffness calculations (I and EI for each shim) in a table</li>
+        <li>Shear force formula with computed maximum value</li>
+        <li>Bending moment formula with computed maximum value</li>
+        <li>Tip deflection — both analytical (small-deflection) and numerical solver results</li>
+        <li>Bending stress at the extreme fibre of the thickest shim</li>
+        <li>A summary of the numerical integration method with step-by-step equations</li>
+    </ol>
+    <p>This allows any user to <strong>follow along with every calculation</strong> and verify accuracy independently.
+    </p>
+
+    <hr>
+
+    <h2>Technology</h2>
+    <ul>
+        <li><strong>Single-file HTML application</strong> — no frameworks, no build step, no dependencies</li>
+        <li><strong>Vanilla JavaScript</strong> — all physics and rendering computed client-side</li>
+        <li><strong>HTML5 Canvas</strong> — hardware-accelerated 2D rendering with HiDPI (Retina) support</li>
+        <li><strong>GitHub Pages</strong> — hosted as a static site, live 24/7 with no server costs</li>
+    </ul>
+
+    <h2>Validation</h2>
+    <p>The solver has been validated against closed-form analytical solutions:</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Test Case</th>
+                <th>Analytical</th>
+                <th>Numerical</th>
+                <th>Result</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>V_max = w × L</td>
+                <td>Exact</td>
+                <td>Exact</td>
+                <td>✓</td>
+            </tr>
+            <tr>
+                <td>M_max = w × L² / 2</td>
+                <td>Exact</td>
+                <td>Exact</td>
+                <td>✓</td>
+            </tr>
+            <tr>
+                <td>δ_tip (small load)</td>
+                <td>Close match</td>
+                <td>Close match</td>
+                <td>✓</td>
+            </tr>
+            <tr>
+                <td>σ_max = M × t/(2I)</td>
+                <td>Close match</td>
+                <td>Close match</td>
+                <td>✓</td>
+            </tr>
+        </tbody>
+    </table>
+    <p>For large deflections, the numerical solver diverges from the linear analytical solution — this is expected and
+        correct, as the arc-length method captures geometric nonlinearity.</p>
+
+    <h2>How to Use</h2>
+    <ol>
+        <li>Open <a href="https://milla421.github.io/beam_app/">https://milla421.github.io/beam_app/</a></li>
+        <li>Set material properties (Elastic Modulus, Width)</li>
+        <li>Add/remove shims and set their lengths and thicknesses</li>
+        <li>Adjust the load slider to see the beam deflect in real time</li>
+        <li>View the displacement, moment, and shear graphs</li>
+        <li>Scroll down to the <strong>Live Calculation Sheet</strong> to see all formulas with actual values</li>
+        <li>Use <strong>Copy Shareable Link</strong> to share a specific configuration</li>
+    </ol>
+
+</body>
+
+</html>

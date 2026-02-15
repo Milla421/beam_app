@@ -563,7 +563,7 @@
                 <label style="margin:0;">Distributed Load (N/mm)</label>
                 <span id="force-val" class="value-bubble">2.00 N/mm</span>
             </div>
-            <input type="range" id="load-slider" min="0" max="100" value="20" step="1">
+            <input type="range" id="load-slider" min="0" max="100" value="0" step="1">
             <div style="display: flex; gap: 6px; margin-top: 4px;">
                 <input type="number" id="max-load-input" value="10" title="Max Load for Slider" style="flex:1;" min="0">
                 <span style="align-self: center; font-size: 0.75rem; color:#64748b; font-weight:500;">Max (N/mm)</span>
@@ -658,13 +658,13 @@
         const state = {
             E: 200000, // MPa (N/mm²) — Steel default
             width: 20, // mm
-            load: 2.0, // N/mm distributed load
+            load: 0, // N/mm distributed load
             shims: [
-                { length: 40, thickness: 0.25 },
-                { length: 35, thickness: 0.20 },
-                { length: 30, thickness: 0.20 },
-                { length: 25, thickness: 0.15 },
-                { length: 20, thickness: 0.15 }
+                { length: 40, thickness: 0.5 },
+                { length: 35, thickness: 0.5 },
+                { length: 30, thickness: 0.5 },
+                { length: 25, thickness: 0.5 },
+                { length: 20, thickness: 0.5 }
             ]
         };
 
